@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { PostHogProvider } from "@/lib/analytics/PosthogProvider";
+import { ThemeProvider } from "next-themes";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://bettermail.tech"),
@@ -99,12 +100,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable}  ${instrumentSerif.variable} font-sans antialiased`}
-        suppressHydrationWarning
       >
-        <PostHogProvider>{children}</PostHogProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <PostHogProvider>{children}</PostHogProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

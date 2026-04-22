@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Moon, Sun } from "lucide-react";
-import { flushSync } from "react-dom";
+import { useTheme } from "next-themes";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 interface AnimatedThemeTogglerProps extends React.ComponentPropsWithoutRef<"button"> {
-  duration?: number;
   showLabel?: boolean;
   /** Render as a DropdownMenuItem with matching icon + label style */
   asMenuItem?: boolean;
@@ -15,62 +14,25 @@ interface AnimatedThemeTogglerProps extends React.ComponentPropsWithoutRef<"butt
 
 export const AnimatedThemeToggler = ({
   className,
-  duration = 400,
   showLabel = false,
   asMenuItem = false,
   ...props
 }: AnimatedThemeTogglerProps) => {
-  const [isDark, setIsDark] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const updateTheme = () => {
-      setIsDark(document.documentElement.classList.contains("dark"));
-    };
-    updateTheme();
-    const observer = new MutationObserver(updateTheme);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => observer.disconnect();
+    setMounted(true);
   }, []);
 
-  const toggleTheme = useCallback(async () => {
-    if (!buttonRef.current) return;
+  const isDark = useMemo(() => resolvedTheme === "dark", [resolvedTheme]);
 
-    await document.startViewTransition(() => {
-      flushSync(() => {
-        const newTheme = !isDark;
-        setIsDark(newTheme);
-        document.documentElement.classList.toggle("dark");
-        localStorage.setItem("theme", newTheme ? "dark" : "light");
-      });
-    }).ready;
+  const toggleTheme = () => {
+    if (!mounted) return;
+    setTheme(isDark ? "light" : "dark");
+  };
 
-    const { top, left, width, height } =
-      buttonRef.current.getBoundingClientRect();
-    const x = left + width / 2;
-    const y = top + height / 2;
-    const maxRadius = Math.hypot(
-      Math.max(left, window.innerWidth - left),
-      Math.max(top, window.innerHeight - top),
-    );
-
-    document.documentElement.animate(
-      {
-        clipPath: [
-          `circle(0px at ${x}px ${y}px)`,
-          `circle(${maxRadius}px at ${x}px ${y}px)`,
-        ],
-      },
-      {
-        duration,
-        easing: "ease-in-out",
-        pseudoElement: "::view-transition-new(root)",
-      },
-    );
-  }, [isDark, duration]);
+  const currentIsDark = mounted ? isDark : false;
 
   // ── Render as a DropdownMenuItem ───────────────────────────────────────
   // Uses DropdownMenuItem's own styling, just like Settings / Keyboard rows.
@@ -86,13 +48,11 @@ export const AnimatedThemeToggler = ({
         }}
         className="gap-2.5 py-2 cursor-pointer"
       >
-        {/* Invisible ref button for getBoundingClientRect */}
-        <button ref={buttonRef} className="sr-only" aria-hidden tabIndex={-1} />
-        <span className="text-neutral-500 dark:text-neutral-400 flex-shrink-0 flex items-center">
-          {isDark ? <Sun size={14} /> : <Moon size={14} />}
+        <span className="text-neutral-500 dark:text-neutral-400 shrink-0 flex items-center">
+          {currentIsDark ? <Sun size={14} /> : <Moon size={14} />}
         </span>
         <span className="text-[12px]">
-          {isDark ? "Light mode" : "Dark mode"}
+          {currentIsDark ? "Light mode" : "Dark mode"}
         </span>
       </DropdownMenuItem>
     );
@@ -101,7 +61,6 @@ export const AnimatedThemeToggler = ({
   // ── Standalone button ──────────────────────────────────────────────────
   return (
     <button
-      ref={buttonRef}
       onClick={toggleTheme}
       className={cn(
         showLabel && "flex cursor-pointer items-center gap-2 w-full",
@@ -109,9 +68,11 @@ export const AnimatedThemeToggler = ({
       )}
       {...props}
     >
-      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      {currentIsDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       {showLabel && (
-        <span className="text-sm">{isDark ? "Light mode" : "Dark mode"}</span>
+        <span className="text-sm">
+          {currentIsDark ? "Light mode" : "Dark mode"}
+        </span>
       )}
       {!showLabel && <span className="sr-only">Toggle theme</span>}
     </button>
