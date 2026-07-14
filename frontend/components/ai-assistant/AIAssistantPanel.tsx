@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -18,6 +18,50 @@ import { ConversationView } from "./ConversationView";
 import { AIInput } from "./AIInput";
 import { useStreamingMessage } from "@/lib/store/conversations.store";
 import { cn } from "@/lib/utils";
+
+function useFocusTrap(containerRef: React.RefObject<HTMLElement | null>, isActive: boolean) {
+  useEffect(() => {
+    if (!isActive || !containerRef.current) return;
+
+    const container = containerRef.current;
+
+    const getFocusableElements = () =>
+      container.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+
+      const focusableElements = getFocusableElements();
+      if (focusableElements.length === 0) return;
+
+      const firstEl = focusableElements[0];
+      const lastEl = focusableElements[focusableElements.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstEl) {
+          e.preventDefault();
+          lastEl.focus();
+        }
+      } else {
+        if (document.activeElement === lastEl) {
+          e.preventDefault();
+          firstEl.focus();
+        }
+      }
+    };
+
+    // Focus the first focusable element when the trap activates
+    const focusableElements = getFocusableElements();
+    if (focusableElements.length > 0) {
+      focusableElements[0].focus();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [containerRef, isActive]);
+}
 
 export function AIAssistantPanel() {
   const {
@@ -63,9 +107,13 @@ export function AIAssistantPanel() {
   };
 
   const hasConversation = !!activeAIConversationId;
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(panelRef, true);
 
   return (
     <motion.div
+      ref={panelRef}
       initial={{ opacity: 0, y: 16, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 16, scale: 0.98 }}
